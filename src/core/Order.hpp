@@ -1,10 +1,9 @@
 #pragma once
 
-#include <cstdint>
 #include "Types.hpp"
+#include <cstdint>
 
 struct Order {
-
   std::uint64_t order_id;
   std::uint64_t timestamp;
   std::uint64_t price;

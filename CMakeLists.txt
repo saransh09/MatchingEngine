@@ -5,14 +5,14 @@ cmake_minimum_required(VERSION 3.20)
 # Use Homebrew LLVM on macOS if available
 # -----------------------------------------------------------------------------
 if(NOT DEFINED CMAKE_C_COMPILER AND NOT DEFINED CMAKE_CXX_COMPILER)
-    if(EXISTS /opt/homebrew/opt/llvm/bin/clang)
-        set(CMAKE_C_COMPILER /opt/homebrew/opt/llvm/bin/clang)
-        set(CMAKE_CXX_COMPILER /opt/homebrew/opt/llvm/bin/clang++)
-    elseif(EXISTS /usr/local/opt/llvm/bin/clang)
-        # Intel Mac Homebrew location
-        set(CMAKE_C_COMPILER /usr/local/opt/llvm/bin/clang)
-        set(CMAKE_CXX_COMPILER /usr/local/opt/llvm/bin/clang++)
-    endif()
+  if(EXISTS /opt/homebrew/opt/llvm/bin/clang)
+    set(CMAKE_C_COMPILER /opt/homebrew/opt/llvm/bin/clang)
+    set(CMAKE_CXX_COMPILER /opt/homebrew/opt/llvm/bin/clang++)
+  elseif(EXISTS /usr/local/opt/llvm/bin/clang)
+    # Intel Mac Homebrew location
+    set(CMAKE_C_COMPILER /usr/local/opt/llvm/bin/clang)
+    set(CMAKE_CXX_COMPILER /usr/local/opt/llvm/bin/clang++)
+  endif()
 endif()
 
 
@@ -67,16 +67,16 @@ target_compile_options(project_warnings INTERFACE
 # -----------------------------------------------------------------------------
 set(SANITIZER "" CACHE STRING "Enable sanitizer (thread, address, undefined)")
 if(SANITIZER)
-    message(STATUS "Enabling ${SANITIZER} sanitizer")
-    add_compile_options(-fsanitize=${SANITIZER} -fno-omit-frame-pointer)
-    add_link_options(-fsanitize=${SANITIZER})
+  message(STATUS "Enabling ${SANITIZER} sanitizer")
+  add_compile_options(-fsanitize=${SANITIZER} -fno-omit-frame-pointer)
+  add_link_options(-fsanitize=${SANITIZER})
 endif()
 
 # -----------------------------------------------------------------------------
 # Platform-specific linker flags (for Homebrew LLVM on macOS)
 # -----------------------------------------------------------------------------
 if(APPLE AND EXISTS /opt/homebrew/opt/llvm)
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L/opt/homebrew/opt/llvm/lib/c++ -Wl,-rpath,/opt/homebrew/opt/llvm/lib/c++")
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L/opt/homebrew/opt/llvm/lib/c++ -Wl,-rpath,/opt/homebrew/opt/llvm/lib/c++")
 endif()
 
 # -----------------------------------------------------------------------------
@@ -95,3 +95,10 @@ add_subdirectory(vendor)
 # Libraries
 # -----------------------------------------------------------------------------
 add_subdirectory(src)
+
+# -----------------------------------------------------------------------------
+# Test
+# -----------------------------------------------------------------------------
+if (BUILD_TESTS)
+  add_subdirectory(tests)
+endif()
