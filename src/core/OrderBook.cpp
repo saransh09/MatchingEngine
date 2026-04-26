@@ -89,12 +89,16 @@ std::vector<Trade> OrderBook::processOrder(Order &&order) {
       ask.remaining_quantity -= quantity;
       order.remaining_quantity -= quantity;
       if (ask.remaining_quantity == 0) {
+        ask.status = Status::FILLED;
         asks[ask.price].pop_front();
         if (asks[ask.price].empty()) {
           asks.erase(ask.price);
         }
+      } else {
+        ask.status = Status::PARTIALLY_FILLED;
       }
       if (order.remaining_quantity == 0) {
+        order.status = Status::FILLED;
         break;
       }
     }
@@ -121,34 +125,39 @@ std::vector<Trade> OrderBook::processOrder(Order &&order) {
       bid.remaining_quantity -= quantity;
       order.remaining_quantity -= quantity;
       if (bid.remaining_quantity == 0) {
+        bid.status = Status::FILLED;
         bids[bid.price].pop_front();
         if (bids[bid.price].empty()) {
           bids.erase(bid.price);
         }
+      } else {
+        bid.status = Status::PARTIALLY_FILLED;
       }
       if (order.remaining_quantity == 0) {
+        order.status = Status::FILLED;
         break;
       }
     }
   }
   if (order.remaining_quantity > 0) {
+    order.status = Status::PARTIALLY_FILLED;
     add_order(std::move(order));
   }
   return trades;
 }
 
-
-std::optional<std::reference_wrapper<const std::deque<Order>>> OrderBook::get_orders_at_price(Side side, Price price) const {
-    if (side == Side::BUY) {
-        auto it = bids.find(price);
-        if (it != bids.end()) {
-            return std::ref(it->second);
-        }
-    } else {
-        auto it = asks.find(price);
-        if (it != asks.end()) {
-            return std::ref(it->second);
-        }
+std::optional<std::reference_wrapper<const std::deque<Order>>>
+OrderBook::get_orders_at_price(Side side, Price price) const {
+  if (side == Side::BUY) {
+    auto it = bids.find(price);
+    if (it != bids.end()) {
+      return std::ref(it->second);
     }
-    return std::optional<std::reference_wrapper<const std::deque<Order>>> {};
+  } else {
+    auto it = asks.find(price);
+    if (it != asks.end()) {
+      return std::ref(it->second);
+    }
+  }
+  return std::optional<std::reference_wrapper<const std::deque<Order>>>{};
 }
