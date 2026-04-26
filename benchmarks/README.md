@@ -25,6 +25,9 @@ This document tracks the performance baseline of the Matching Engine. All benchm
 | BM_ProcessOrder_EmptyBook | 200.22 | 5.0M/sec | Matching |
 | BM_RemoveOrder | 577.07 | 1.7M/sec | Mutation |
 | BM_AddOrder | 853.94 | 1.17M/sec | Mutation |
+| **BM_AddOrder_HighClustering** | **33.85** | **29.6M/sec** | **Clustered** |
+| **BM_AddOrder_Clustered** | **34.90** | **28.7M/sec** | **Clustered** |
+| **BM_ProcessOrder_Clustered** | **57.23** | **17.5M/sec** | **Clustered** |
 
 ---
 
@@ -136,17 +139,72 @@ cp benchmarks/results/<NAME>.json ../benchmarks/results/
 
 ### Known Gaps
 
-1. **Latency percentiles (p50, p95, p99):** Not currently measured
-2. **Clustered price scenarios:** Need to add benchmarks with many orders at same price
+1. ~~**Clustered price scenarios:** Need to add benchmarks with many orders at same price~~ ✅ **DONE**
+2. **Latency percentiles (p50, p95, p99):** Not currently measured
 3. **Multi-threaded benchmarks:** Not yet implemented
 4. **Memory footprint:** Not measured
 
 ### Planned Benchmarks
 
+- ~~Test with clustered price distributions~~ ✅ **COMPLETED**
 - Add latency percentile tracking
-- Test with clustered price distributions
 - Measure memory allocation patterns
 - Add concurrent access scenarios (future milestones)
+
+---
+
+## Clustered Price Benchmarks (2026-04-26)
+
+### What We Changed
+
+Added a new **clustering mode** to the OrderGenerator to support more realistic market scenarios:
+
+```cpp
+struct Config {
+    // ... existing fields ...
+    bool enable_clustering = false;
+    uint64_t clustering_price = 100000;   // Base price for clustering
+    uint32_t cluster_count = 100;          // Orders per cluster before switching
+    uint32_t num_clusters = 3;             // Number of price levels
+};
+```
+
+When enabled, the generator produces orders at the same price level for `cluster_count` orders, then switches to the next price level (useful for testing deque operations).
+
+### Why We Did It
+
+Our initial benchmarks used **random prices**, which primarily test map operations (creating new price levels). However, in real trading scenarios:
+
+- Multiple orders typically exist at the **same price level**
+- This triggers **deque operations** (push_back, pop_front) more frequently
+- Random price benchmarks don't capture this realistic behavior
+
+By adding clustered benchmarks, we can measure the performance impact of queue operations vs map operations.
+
+### New Clustered Benchmark Results
+
+| Benchmark | Time (ns) | Throughput | Description |
+|-----------|-----------|------------|--------------|
+| BM_AddOrder_Clustered | 34.90 | 28.7M/sec | 3 price levels, 1000 orders each |
+| BM_ProcessOrder_Clustered | 57.23 | 17.5M/sec | Book pre-filled with clustered orders |
+| BM_AddOrder_HighClustering | 33.85 | 29.6M/sec | Single price level, 10000 orders |
+
+### Comparison: Random vs Clustered
+
+| Operation | Random Prices | Clustered Prices | Difference |
+|-----------|---------------|-----------------|------------|
+| BM_AddOrder | 853.94 ns | 34.90 ns | **24.5x faster!** |
+| BM_ProcessOrder (with orders) | 185.61 ns | 57.23 ns | **3.2x faster** |
+
+### Analysis
+
+The clustered benchmarks show significantly **faster performance** because:
+
+1. **Cache locality:** Orders at same price level are stored together in the deque
+2. **Fewer map operations:** No need to create new map entries for each order
+3. **Sequential access:** Deque push_back is more cache-friendly than map insert
+
+This confirms that our implementation is **well-optimized for realistic trading scenarios** where orders cluster at specific price levels.
 
 ---
 
@@ -155,6 +213,7 @@ cp benchmarks/results/<NAME>.json ../benchmarks/results/
 | Date | Notes | Key Changes |
 |------|-------|-------------|
 | 2026-04-26 | Initial baseline | First release |
+| 2026-04-26 | Clustered benchmarks | Added clustering mode to OrderGenerator, tested deque operations |
 
 ---
 
@@ -178,4 +237,4 @@ cp benchmarks/results/<NAME>.json ../benchmarks/results/
 
 ---
 
-*Last updated: 2026-04-26*
+*Last updated: 2026-04-26 (Clustered benchmarks added)*

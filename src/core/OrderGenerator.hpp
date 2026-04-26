@@ -12,6 +12,11 @@ public:
     uint64_t min_quantity = 1;
     uint64_t max_quantity = 100;
     double buy_ratio = 0.5;
+
+    bool enable_clustering = false;
+    uint64_t clustering_price = 100000;
+    uint32_t cluster_count = 100;
+    uint32_t num_clusters = 3;
   };
 
   OrderGenerator();
@@ -29,4 +34,7 @@ private:
 
   uint64_t next_order_id_ = 0;
   uint64_t next_timestamp_ = 0;
+
+  uint32_t orders_in_current_cluster_ = 0;
+  uint32_t current_cluster_index_ = 0;
 };

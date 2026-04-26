@@ -143,4 +143,76 @@ static void BM_ProcessOrder_NoMatch(benchmark::State& state) {
 }
 BENCHMARK(BM_ProcessOrder_NoMatch);
 
+// -----------------------------------------------
+// Clustered benchmark for more deque operation
+// -----------------------------------------------
+static void BM_AddOrder_Clustered(benchmark::State& state) {
+    OrderGenerator generator({
+        .min_price = 100000,
+        .max_price = 110000,
+        .min_quantity = 10,
+        .max_quantity = 50,
+        .buy_ratio = 0.5,
+        .enable_clustering = true,
+        .clustering_price = 100000,
+        .cluster_count = 1000,
+        .num_clusters = 3
+    });
+    OrderBook book;
+
+    for (auto _ : state) {
+        Order order = generator.generate();
+        book.add_order(std::move(order));
+    }
+}
+BENCHMARK(BM_AddOrder_Clustered);
+
+static void BM_ProcessOrder_Clustered(benchmark::State& state) {
+    OrderGenerator generator({
+        .min_price = 100000,
+        .max_price = 110000,
+        .min_quantity = 10,
+        .max_quantity = 50,
+        .buy_ratio = 0.5,
+        .enable_clustering = true,
+        .clustering_price = 100000,
+        .cluster_count = 1000,
+        .num_clusters = 3
+    });
+    OrderBook book;
+
+    for (int i = 0; i < 1000; ++i) {
+        book.add_order(generator.generate());
+    }
+
+    for (auto _ : state) {
+        auto trades = book.processOrder(generator.generate());
+        benchmark::ClobberMemory();
+        benchmark::DoNotOptimize(trades);
+    }
+}
+BENCHMARK(BM_ProcessOrder_Clustered);
+
+static void BM_AddOrder_HighClustering(benchmark::State& state) {
+    OrderGenerator generator({
+        .min_price = 100000,
+        .max_price = 110000,
+        .min_quantity = 10,
+        .max_quantity = 50,
+        .buy_ratio = 0.5,
+        .enable_clustering = true,
+        .clustering_price = 100000,
+        .cluster_count = 10000,
+        .num_clusters = 1
+    });
+    OrderBook book;
+
+    for (auto _ : state) {
+        book.add_order(generator.generate());
+        benchmark::DoNotOptimize(book);
+    }
+}
+BENCHMARK(BM_AddOrder_HighClustering);
+
+
 BENCHMARK_MAIN();

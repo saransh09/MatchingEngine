@@ -12,7 +12,18 @@ Order OrderGenerator::generate() {
   Order order;
   order.order_id = next_order_id_++;
   order.timestamp = next_timestamp_++;
-  order.price = price_dist_(rng_);
+
+  if (config_.enable_clustering) {
+      order.price = config_.clustering_price + (current_cluster_index_ * 500);
+      orders_in_current_cluster_++;
+      if (orders_in_current_cluster_ >= config_.cluster_count) {
+          orders_in_current_cluster_ = 0;
+          current_cluster_index_ = (current_cluster_index_ + 1) % config_.num_clusters;
+      }
+  }
+  else {
+      order.price = price_dist_(rng_);
+  }
   order.quantity = quantity_dist_(rng_);
   order.remaining_quantity = order.quantity;
   order.side = side_dist_(rng_) ? Side::BUY : Side::SELL;
@@ -25,4 +36,6 @@ Order OrderGenerator::generate() {
 void OrderGenerator::reset() {
   next_order_id_ = 0;
   next_timestamp_ = 0;
+  orders_in_current_cluster_ = 0;
+  current_cluster_index_ = 0;
 }
