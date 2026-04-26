@@ -19,7 +19,7 @@ endif()
 project(MatchingEngine LANGUAGES CXX)
 
 option(ENABLE_TESTING "Enable testing support" OFF)
-option(ENABLE_BENCHMARKING "ENABLE BENCHMARKING" OFF)
+option(ENABLE_BENCHMARKING "ENABLE BENCHMARKING" ON)
 option(ENABLE_LOGGING "Enable profiling instrumentation" ON)
 
 message(STATUS "ENABLE_TESTING: ${ENABLE_TESTING}")
@@ -96,9 +96,18 @@ add_subdirectory(vendor)
 # -----------------------------------------------------------------------------
 add_subdirectory(src)
 
+
 # -----------------------------------------------------------------------------
 # Test
 # -----------------------------------------------------------------------------
 if (BUILD_TESTS)
   add_subdirectory(tests)
+endif()
+
+
+# -----------------------------------------------------------------------------
+# Benchmarks
+# -----------------------------------------------------------------------------
+if (ENABLE_BENCHMARKING)
+  add_subdirectory(benchmarks)
 endif()

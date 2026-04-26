@@ -1,0 +1,17 @@
+cmake_minimum_required(VERSION 3.20)
+
+project(MatchingEngineBenchmarks LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+add_executable(matching_benchmark
+  matching_benchmark.cpp
+)
+
+target_link_libraries(matching_benchmark
+  PRIVATE
+  core
+  benchmark::benchmark
+  benchmark::benchmark_main
+)
