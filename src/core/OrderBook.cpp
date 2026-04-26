@@ -1,5 +1,9 @@
 #include "OrderBook.hpp"
+#include "Order.hpp"
 #include <algorithm>
+#include <deque>
+#include <functional>
+#include <optional>
 
 void OrderBook::add_order(Order &&order) {
   if (order.side == Side::BUY) {
@@ -131,4 +135,20 @@ std::vector<Trade> OrderBook::processOrder(Order &&order) {
     add_order(std::move(order));
   }
   return trades;
+}
+
+
+std::optional<std::reference_wrapper<const std::deque<Order>>> OrderBook::get_orders_at_price(Side side, Price price) const {
+    if (side == Side::BUY) {
+        auto it = bids.find(price);
+        if (it != bids.end()) {
+            return std::ref(it->second);
+        }
+    } else {
+        auto it = asks.find(price);
+        if (it != asks.end()) {
+            return std::ref(it->second);
+        }
+    }
+    return std::optional<std::reference_wrapper<const std::deque<Order>>> {};
 }

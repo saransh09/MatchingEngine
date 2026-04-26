@@ -17,8 +17,7 @@ public:
   std::optional<Order> remove_from_order(Side side, Price price);
   std::optional<std::reference_wrapper<const Order>> best_bid() const;
   std::optional<std::reference_wrapper<const Order>> best_ask() const;
-  // std::optional<std::reference_wrapper<std::deque<Order>>>
-  // get_orders_at_price(Price price) const;
+  std::optional<std::reference_wrapper<const std::deque<Order>>> get_orders_at_price(Side side, Price price) const;
   bool is_empty(Side side) const;
   std::vector<Trade> processOrder(Order &&order);
 
