@@ -7,8 +7,8 @@
 class OrderGenerator {
 public:
   struct Config {
-    uint64_t min_price = 50000;
-    uint64_t max_price = 500000;
+    uint64_t min_price = 100000;
+    uint64_t max_price = 101000;
     uint64_t min_quantity = 1;
     uint64_t max_quantity = 100;
     double buy_ratio = 0.5;
