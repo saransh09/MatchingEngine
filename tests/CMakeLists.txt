@@ -8,6 +8,7 @@ endif()
 add_executable(order_book_test
 order_book_test.cpp
 matching_test.cpp
+order_generator_test.cpp
 )
 
 target_link_libraries(
