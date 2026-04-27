@@ -1,14 +1,20 @@
 #pragma once
 
+#include "Order.hpp"
 #include "Trade.hpp"
-#include "OrderBook.hpp"
+
 #include <vector>
-class MatchingEngine {
+template <typename OrderBookType> class MatchingEngine {
 public:
-    MatchingEngine(OrderBook& orderBook): book_(orderBook) {}
-    std::vector<Trade> processOrder(Order order);
-    OrderBook& getOrderBook() const;
+  MatchingEngine(OrderBookType &orderBook) : book_(orderBook) {}
+
+  std::vector<Trade> processOrder(Order order) {
+      return book_.processOrder(std::move(order));
+  };
+  OrderBookType &getOrderBook() const {
+      return book_;
+  };
+
 private:
-    std::vector<Trade> trades_;
-    OrderBook& book_;
+  OrderBookType &book_;
 };

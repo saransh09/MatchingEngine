@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <deque>
 #include <functional>
+#include <iterator>
 #include <optional>
 
 void OrderBook::add_order(Order &&order) {
@@ -62,7 +63,8 @@ bool OrderBook::is_empty(Side side) const {
 
 std::vector<Trade> OrderBook::processOrder(Order &&order) {
   std::vector<Trade> trades;
-  trades.reserve(3); // trying to avoid reallocations
+  // Optimization --> Reserve space for trades to avoid reallocations
+  trades.reserve(3);
 
   if (order.side == Side::BUY) {
     while (order.remaining_quantity > 0) {
@@ -91,9 +93,12 @@ std::vector<Trade> OrderBook::processOrder(Order &&order) {
       order.remaining_quantity -= quantity;
       if (ask.remaining_quantity == 0) {
         ask.status = Status::FILLED;
-        asks[ask.price].pop_front();
-        if (asks[ask.price].empty()) {
-          asks.erase(ask.price);
+        // Optimization : best_ask object is already a reference
+        // no need to recompute O(log n) vs O(1)
+        // --> direct iterator access
+        best_ask->second.pop_front();
+        if (best_ask->second.empty()) {
+          asks.erase(best_ask);
         }
       } else {
         ask.status = Status::PARTIALLY_FILLED;
@@ -127,9 +132,10 @@ std::vector<Trade> OrderBook::processOrder(Order &&order) {
       order.remaining_quantity -= quantity;
       if (bid.remaining_quantity == 0) {
         bid.status = Status::FILLED;
-        bids[bid.price].pop_front();
-        if (bids[bid.price].empty()) {
-          bids.erase(bid.price);
+        best_bid->second.pop_front();
+        if (best_bid->second.empty()) {
+          auto bid_it = std::prev(best_bid.base());
+          bids.erase(bid_it);
         }
       } else {
         bid.status = Status::PARTIALLY_FILLED;

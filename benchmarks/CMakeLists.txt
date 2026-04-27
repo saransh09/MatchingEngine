@@ -9,7 +9,18 @@ add_executable(matching_benchmark
   matching_benchmark.cpp
 )
 
+add_executable(matching_benchmark_flat
+  matching_benchmark_flat.cpp
+)
+
 target_link_libraries(matching_benchmark
+  PRIVATE
+  core
+  benchmark::benchmark
+  benchmark::benchmark_main
+)
+
+target_link_libraries(matching_benchmark_flat
   PRIVATE
   core
   benchmark::benchmark
@@ -18,3 +29,6 @@ target_link_libraries(matching_benchmark
 
 target_compile_options(matching_benchmark PRIVATE -flto)
 target_link_options(matching_benchmark PRIVATE -flto)
+
+target_compile_options(matching_benchmark_flat PRIVATE -flto)
+target_link_options(matching_benchmark_flat PRIVATE -flto)

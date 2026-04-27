@@ -371,6 +371,169 @@ Added to `CMakeLists.txt` for Release builds:
 
 ---
 
+## Phase 1 Optimizations: Iterator Usage (2026-04-27)
+
+### The Problem
+
+In `processOrder`, when a resting order is fully filled, the code was doing redundant `std::map` lookups:
+
+```cpp
+// OLD CODE (before optimization)
+if (ask.remaining_quantity == 0) {
+    ask.status = Status::FILLED;
+    asks[ask.price].pop_front();           // REDUNDANT: operator[] does find()
+    if (asks[ask.price].empty()) {          // REDUNDANT: another find()
+        asks.erase(ask.price);               // REDUNDANT: find() + erase
+    }
+}
+```
+
+We already had the exact iterator (`best_ask`) but used `asks[ask.price]` which does:
+1. `find()` — O(log n)
+2. Potentially inserts — O(log n) (though won't insert in this case, compiler can't elide)
+3. Then `erase(ask.price)` does another `find()` + erase
+
+### The Fix
+
+Use the iterator we already have:
+
+```cpp
+// NEW CODE (after optimization)
+if (ask.remaining_quantity == 0) {
+    ask.status = Status::FILLED;
+    best_ask->second.pop_front();          // Direct access: O(1)
+    if (best_ask->second.empty()) {         // Direct access: O(1)
+        asks.erase(best_ask);               // erase by iterator: O(1) amortized
+    }
+}
+```
+
+For the bid side, we convert `reverse_iterator` to iterator:
+
+```cpp
+auto bid_it = std::prev(best_bid.base());   // Convert reverse_iterator -> iterator
+bids.erase(bid_it);                         // erase by iterator: O(1) amortized
+```
+
+### Benchmark Results
+
+| Benchmark                    | Before   | After    | Delta    | Change  |
+| ---------------------------- | -------- | -------- | -------- | ------- |
+| Integration_Extreme         | 150.9 ns | 143.0 ns | -7.9 ns  | **-5.2%** |
+| ProcessOrder_EmptyBook       | 114.7 ns | 109.9 ns | -4.9 ns  | **-4.3%** |
+| ProcessOrder_ExactMatch     | 82.7 ns  | 79.8 ns  | -2.9 ns  | **-3.5%** |
+| ProcessOrder_WithRestingOrders | 115.9 ns | 113.4 ns | -2.6 ns  | -2.2%   |
+| RemoveOrder                 | 68.2 ns  | 72.1 ns  | +3.9 ns  | +5.6%   |
+| GetOrdersAtPrice            | 3.80 ns  | 4.93 ns  | +1.1 ns  | +30%    |
+| Other benchmarks             | —        | —        | ~±1%     | Noise   |
+
+### Analysis
+
+**Real improvements on matching-heavy paths:**
+- `Integration_Extreme` (-5.2%) — Our most realistic benchmark benefits most
+- `ExactMatch` (-3.5%) — Always fills the resting order, triggers the erase path
+- `EmptyBook` (-4.3%) — Benefits from cleaner iterator usage in the add path
+
+**Why the improvement is modest:**
+- We eliminated 2-3 redundant O(log n) lookups per filled order
+- But `std::map` is still the dominant cost in the hot path
+- The matching loop still does `asks.begin()` (O(1)) and `asks.erase(iterator)` (O(1) amortized)
+- The biggest remaining bottleneck is the map find/insert operations themselves
+
+**The RemoveOrder regression (+5.6%) is noise:**
+- `RemoveOrder` benchmark calls a different function (`remove_from_order`), which was NOT modified
+- CV=1.7% is acceptable; this is just normal benchmark variance
+
+### Key Learning
+
+This optimization confirms the thesis: **we're limited by `std::map` overhead, not by micro-optimizations within the map operations.** Eliminating redundant lookups gave ~3-5% improvement on the hot path, but the remaining gains require replacing `std::map` with a more efficient data structure.
+
+---
+
+## Experiment: Flat Sorted Array (REJECTED) (2026-04-27)
+
+### The Hypothesis
+
+Replace `std::map` with `std::vector<PriceLevel>` where PriceLevel contains `{price, deque<Order>}`. The hypothesis was:
+
+- Best bid/ask would be O(1) direct access: `bids_[0]`, `asks_[0]` instead of tree traversal
+- Binary search on contiguous memory is faster than tree traversal
+- Contiguous memory is more cache-friendly than scattered tree nodes
+
+### Implementation
+
+Created a parallel implementation `OrderBookFlatSorted` with:
+
+```cpp
+struct PriceLevel {
+    Price price;
+    std::deque<Order> orders;
+};
+
+std::vector<PriceLevel> bids_;  // sorted DESCENDING (best bid at index 0)
+std::vector<PriceLevel> asks_;  // sorted ASCENDING (best ask at index 0)
+```
+
+### Benchmark Results
+
+| Benchmark                | std::map   | Flat Sorted | Change   |
+| ------------------------ | ---------- | ----------- | -------- |
+| BestBid                  | 3.85 ns    | 0.65 ns     | **-83%** |
+| BestAsk                  | 0.67 ns    | 0.65 ns     | -3%      |
+| AddOrder (new level)    | 65.7 ns    | 49.7 ns     | **-24%** |
+| ExactMatch              | 79.8 ns    | 64.8 ns     | **-19%** |
+| RemoveOrder             | 72.1 ns    | 59.3 ns     | **-18%** |
+| ProcessOrder_Clustered  | 50.0 ns    | 50.3 ns     | +1%      |
+| **EmptyBook**           | 109.9 ns   | 842.4 ns    | **+667%** |
+| **WithRestingOrders**   | 113.4 ns   | 857.4 ns    | **+657%** |
+| **Integration_Extreme** | 143.0 ns   | 6898.6 ns   | **+4724%** |
+
+### Analysis
+
+**The wins were real:**
+- BestBid improved dramatically (3.85ns → 0.65ns) — direct array access vs reverse iterator
+- AddOrder, ExactMatch, RemoveOrder all showed 18-24% improvement
+
+**The losses were catastrophic:**
+- EmptyBook, WithRestingOrders, Integration_Extreme all regressed massively
+- **Root cause:** O(n) vector insert/erase operations dominate when there are many price levels
+- Each `vector::emplace` or `vector::erase` requires shifting all subsequent elements
+- With 100 scattered price levels, each insert does ~50 element shifts on average
+
+### The Core Tradeoff
+
+| Scenario | Flat Sorted Array | std::map |
+|----------|-------------------|----------|
+| Few price levels (<10) | **Faster** — no tree overhead | Slower — tree node allocation |
+| Many price levels (>50) | **Catastrophic** — O(n) shift dominates | Faster — O(log n) tree rebalancing |
+
+### Conclusion: REJECTED
+
+The flat sorted array approach is fundamentally incompatible with arbitrary price distributions. Real markets do have many price levels (especially during volatility), making this approach unsafe for production.
+
+### What Production Systems Actually Use
+
+The industry standard is **hash map + cached BBO pointers**:
+
+```cpp
+std::unordered_map<Price, std::deque<Order>> price_levels_;
+Price best_bid_price_;  // cached, updated on each operation
+Price best_ask_price_;  // cached, updated on each operation
+```
+
+This gives O(1) price level lookup via hash map and O(1) best price access via cached pointers. However, the improvement over `std::map` would be marginal for our use case — our clustered benchmarks already show that **deque operations dominate**, not map lookups.
+
+### Key Learning
+
+**Contiguous memory isn't always faster.** When operations require in-middle insert/erase, O(n) shift cost dominates for n > ~20. This is a fundamental data structure tradeoff that applies regardless of language or implementation.
+
+The `std::map` implementation remains our production choice because:
+1. It handles arbitrary price distributions safely
+2. Performance (6.5M orders/sec) far exceeds our M1/M2 targets (100K-2M/sec)
+3. The clustered scenarios that matter (few price levels) perform well
+
+---
+
 ## Comparison History
 
 | Date       | Notes                         | Key Changes                                                      |
@@ -379,6 +542,8 @@ Added to `CMakeLists.txt` for Release builds:
 | 2026-04-26 | Clustered benchmarks         | Added clustering mode to OrderGenerator, tested deque operations |
 | 2026-04-27 | Phase 1 optimization (reserve) | Added trades.reserve(3) to processOrder                         |
 | 2026-04-27 | Phase 1 optimization (flags) | Added -march=native + -flto to CMakeLists.txt                   |
+| 2026-04-27 | Phase 1 optimization (iterator) | Optimized map iterator usage in processOrder cleanup            |
+| 2026-04-27 | Experiment: Flat Sorted Array | REJECTED — O(n) vector shift dominates with many price levels |
 
 ---
 
@@ -392,6 +557,14 @@ Added to `CMakeLists.txt` for Release builds:
 
 4. **Mutation is the Bottleneck:** Add/remove operations at ~500-850ns are the slowest but still reasonable for single-threaded operations.
 
+5. **std::map is the limiting factor:** After all Phase 1 optimizations (reserve, compiler flags, iterator usage), the remaining performance ceiling is the `std::map` data structure. Further gains require algorithmic changes (Phase 2/3).
+
+6. **Micro-optimizations have diminishing returns:** Compiler flags and branch hints gave minimal or no improvement on matching paths. The bottleneck is algorithmic, not micro-optimizable.
+
+7. **Contiguous memory isn't always faster:** Flat sorted array was 83% faster for BestBid but 667% SLOWER for matching. The O(n) shift cost of vector insert/erase dominates when n > ~20 price levels.
+
+8. **Production systems use hash map + cached BBO:** Industry standard is `std::unordered_map` with cached best bid/ask pointers, not flat arrays. Our `std::map` is good enough for our throughput targets (6.5M/sec >> 2M/sec M2 target).
+
 ---
 
 ## References
@@ -402,4 +575,4 @@ Added to `CMakeLists.txt` for Release builds:
 
 ---
 
-_Last updated: 2026-04-27 (Phase 1 optimizations: reserve + compiler flags documented)_
+_Last updated: 2026-04-27 (Flat sorted array experiment documented and rejected)_

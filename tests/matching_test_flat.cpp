@@ -1,16 +1,16 @@
 #include "MatchingEngine.hpp"
-#include "OrderBook.hpp"
 #include "Order.hpp"
+#include "OrderBookFlatSorted.hpp"
 #include <gtest/gtest.h>
 #include <utility>
 
-class MatchingTest : public testing::Test {
+class FlatMatchingTest : public testing::Test {
 protected:
-  OrderBook book;
-  MatchingEngine<OrderBook> engine{book};
+  OrderBookFlatSorted book;
+  MatchingEngine<OrderBookFlatSorted> engine{book};
 };
 
-TEST_F(MatchingTest, ExactBuyMatchTest) {
+TEST_F(FlatMatchingTest, ExactBuyMatchFlatTest) {
   Order order_1{
       .order_id = 1,
       .timestamp = 0,
@@ -44,7 +44,7 @@ TEST_F(MatchingTest, ExactBuyMatchTest) {
   ASSERT_EQ(trades.size(), 1);
 }
 
-TEST_F(MatchingTest, ExactSellMatchTest) {
+TEST_F(FlatMatchingTest, ExactSellMatchFlatTest) {
   Order order_1{
       .order_id = 1,
       .timestamp = 0,
@@ -79,7 +79,7 @@ TEST_F(MatchingTest, ExactSellMatchTest) {
   ASSERT_EQ(trades.size(), 1);
 }
 
-TEST_F(MatchingTest, PartialBuyMatchTest) {
+TEST_F(FlatMatchingTest, PartialBuyMatchFlatTest) {
   Order order_1{
       .order_id = 1,
       .timestamp = 0,
@@ -119,7 +119,7 @@ TEST_F(MatchingTest, PartialBuyMatchTest) {
             5);
 }
 
-TEST_F(MatchingTest, PartialSellMatchTest) {
+TEST_F(FlatMatchingTest, PartialSellMatchFlatTest) {
   Order order_1{
       .order_id = 1,
       .timestamp = 0,
@@ -157,7 +157,7 @@ TEST_F(MatchingTest, PartialSellMatchTest) {
             5);
 }
 
-TEST_F(MatchingTest, PartialFillRestingTest) {
+TEST_F(FlatMatchingTest, PartialFillRestingFlatTest) {
   Order order_1{
       .order_id = 1,
       .timestamp = 0,
@@ -195,7 +195,7 @@ TEST_F(MatchingTest, PartialFillRestingTest) {
             5);
 }
 
-TEST_F(MatchingTest, NoMatchBuyTooLowTest) {
+TEST_F(FlatMatchingTest, NoMatchBuyTooLowFlatTest) {
   Order order_1{
       .order_id = 1,
       .timestamp = 0,
@@ -237,7 +237,7 @@ TEST_F(MatchingTest, NoMatchBuyTooLowTest) {
       10);
 }
 
-TEST_F(MatchingTest, NoMatchSellTooHighTest) {
+TEST_F(FlatMatchingTest, NoMatchSellTooHighFlatTest) {
   Order order_1{
       .order_id = 1,
       .timestamp = 0,
@@ -281,7 +281,7 @@ TEST_F(MatchingTest, NoMatchSellTooHighTest) {
             10);
 }
 
-TEST_F(MatchingTest, TimePriorityTest) {
+TEST_F(FlatMatchingTest, TimePriorityFlatTest) {
 
   Order ask_a{
       .order_id = 1,
@@ -332,7 +332,7 @@ TEST_F(MatchingTest, TimePriorityTest) {
   ASSERT_EQ(remaining->get().front().order_id, 2);
 }
 
-TEST_F(MatchingTest, MultiFillTest) {
+TEST_F(FlatMatchingTest, MultiFillFlatTest) {
   Order ask_1{
       .order_id = 1,
       .timestamp = 0,
@@ -400,7 +400,7 @@ TEST_F(MatchingTest, MultiFillTest) {
   ASSERT_EQ(remaining->get().front().remaining_quantity, 30);
 }
 
-TEST_F(MatchingTest, EmptyBookTest) {
+TEST_F(FlatMatchingTest, EmptyBookFlatTest) {
   Order buy_order{
       .order_id = 1,
       .timestamp = 0,
@@ -423,7 +423,7 @@ TEST_F(MatchingTest, EmptyBookTest) {
   ASSERT_EQ(best_bid->get().order_id, 1);
 }
 
-TEST_F(MatchingTest, PriceLevelCleanupTest) {
+TEST_F(FlatMatchingTest, PriceLevelCleanupFlatTest) {
   Order ask{
       .order_id = 1,
       .timestamp = 0,
@@ -459,7 +459,7 @@ TEST_F(MatchingTest, PriceLevelCleanupTest) {
   ASSERT_FALSE(best_ask.has_value());
 }
 
-TEST_F(MatchingTest, MultiplePriceLevelsTest) {
+TEST_F(FlatMatchingTest, MultiplePriceLevelsFlatTest) {
   Order bid_1{.order_id = 1,
               .timestamp = 0,
               .price = 1000,
@@ -498,7 +498,7 @@ TEST_F(MatchingTest, MultiplePriceLevelsTest) {
   ASSERT_FALSE(book.is_empty(Side::BUY));
 }
 
-TEST_F(MatchingTest, StatusUpdatesTest) {
+TEST_F(FlatMatchingTest, StatusUpdatesFlatTest) {
   Order ask{
       .order_id = 1,
       .timestamp = 0,
@@ -535,7 +535,7 @@ TEST_F(MatchingTest, StatusUpdatesTest) {
   ASSERT_EQ(remaining->get().front().remaining_quantity, 50);
 }
 
-TEST_F(MatchingTest, StatusFilledTest) {
+TEST_F(FlatMatchingTest, StatusFilledFlatTest) {
   Order ask{.order_id = 1,
             .timestamp = 0,
             .price = 1000,
@@ -561,7 +561,7 @@ TEST_F(MatchingTest, StatusFilledTest) {
   ASSERT_TRUE(book.is_empty(Side::SELL));
   ASSERT_TRUE(book.is_empty(Side::BUY));
 }
-TEST_F(MatchingTest, StatusPartiallyFilledTest) {
+TEST_F(FlatMatchingTest, StatusPartiallyFilledFlatTest) {
   Order ask{.order_id = 1,
             .timestamp = 0,
             .price = 1000,

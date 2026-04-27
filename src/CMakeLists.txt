@@ -1,6 +1,6 @@
 ADD_LIBRARY(core OBJECT
     core/OrderBook.cpp
-    core/MatchingEngine.cpp
+    core/OrderBookFlatSorted.cpp
     core/OrderGenerator.cpp
 )
 TARGET_INCLUDE_DIRECTORIES(core INTERFACE

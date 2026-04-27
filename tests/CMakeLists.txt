@@ -10,6 +10,8 @@ order_book_test.cpp
 matching_test.cpp
 order_generator_test.cpp
 integration_test.cpp
+order_book_flat_sorted_test.cpp
+matching_test_flat.cpp
 )
 
 target_link_libraries(
