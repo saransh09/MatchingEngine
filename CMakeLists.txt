@@ -45,6 +45,13 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 # -----------------------------------------------------------------------------
+# Target Architecture & Optimization (Release only)
+# -----------------------------------------------------------------------------
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+  add_compile_options(-march=native)
+endif()
+
+# -----------------------------------------------------------------------------
 # Compiler Warnings (important for concurrent code!)
 # -----------------------------------------------------------------------------
 add_library(project_warnings INTERFACE)

@@ -62,6 +62,7 @@ bool OrderBook::is_empty(Side side) const {
 
 std::vector<Trade> OrderBook::processOrder(Order &&order) {
   std::vector<Trade> trades;
+  trades.reserve(3); // trying to avoid reallocations
 
   if (order.side == Side::BUY) {
     while (order.remaining_quantity > 0) {

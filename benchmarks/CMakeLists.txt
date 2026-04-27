@@ -15,3 +15,6 @@ target_link_libraries(matching_benchmark
   benchmark::benchmark
   benchmark::benchmark_main
 )
+
+target_compile_options(matching_benchmark PRIVATE -flto)
+target_link_options(matching_benchmark PRIVATE -flto)
